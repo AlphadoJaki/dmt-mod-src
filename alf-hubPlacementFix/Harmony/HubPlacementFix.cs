@@ -14,7 +14,7 @@ using WorldGenerationEngine;
 [HarmonyPatch("GenerateTowns")]
 public class AlphadoJaki_HubGen_TrySmallerWithoutAbort : IHarmony
 {
-	public static readonly bool isDebug = true;
+	public static readonly bool isDebug = false;
 	public static readonly int[][] HubMaxCount = new int[][]
 	{// Max Count : 31
 		new int[]// 8K Map | DON'T SWAP THIS WITH 4K
