@@ -1,0 +1,9 @@
+<mod>
+	<info>
+		<author>Alphado-Jaki</author>
+		<name>Alphado - Hub Placement Fix</name>
+		<description>Try smaller hub if Larger one can't spawn in</description>
+		<mod_version>0.1.0</mod_version>
+		<game_version>18.0</game_version>
+	</info>
+</mod>
