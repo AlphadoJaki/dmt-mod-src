@@ -16,24 +16,24 @@ public class AlphadoJaki_HubGen_TrySmallerWithoutAbort : IHarmony
 {
 	public static readonly bool isDebug = false;
 	public static readonly int[][] HubMaxCount = new int[][]
-	{// Max Count : 31
+	{
 		new int[]// 8K Map | DON'T SWAP THIS WITH 4K
-		{
-			10,     //City  (512 ~ 682m) Default  2
-			10,     //Town  (682 ~ 853m) Default  5
-			11      //Rural (853 ~1024m) Default 10
+		{//         Max : 256 of Rural
+			 32,     //City  (512 ~ 682m) Default  2
+			 48,     //Town  (682 ~ 853m) Default  5
+			255      //Rural (853 ~1024m) Default 10
 		},
 		new int[]// 4K Map | DON'T SWAP THIS WITH 8K
-		{
-			 6,     //City  (512 ~ 682m) Default  1
-			10,     //Town  (682 ~ 853m) Default  2
-			15      //Rural (853 ~1024m) Default  5
+		{//         Max : 32 of Rural
+			 8,     //City  (512 ~ 682m) Default  1
+			12,     //Town  (682 ~ 853m) Default  2
+			32      //Rural (853 ~1024m) Default  5
 		},
 		new int[]// 16K Map
-		{
-			15,     //City  (512 ~ 682m) Default  4
-			 8,     //Town  (682 ~ 853m) Default 10
-			 8      //Rural (853 ~1024m) Default 15
+		{//         Max : 1024 of Rural
+			 128,     //City  (512 ~ 682m) Default  4
+			 180,     //Town  (682 ~ 853m) Default 10
+			1024      //Rural (853 ~1024m) Default 15
 		}
 	};
 
@@ -60,6 +60,69 @@ public class AlphadoJaki_HubGen_TrySmallerWithoutAbort : IHarmony
 
 		var itr = codes.First;
 
+		var concatMethod = AccessTools.Method(AccessTools.TypeByName("System.String"), "Concat", new Type[]{typeof(object), typeof(object)});
+		var basicLogMethod = AccessTools.Method(AccessTools.TypeByName("Log"), "Out", new Type[]{typeof(string)});
+
+		Info("Replacing Hard-Max town count 32 to size/512 : 1 of 2");
+		while(itr.Value.opcode != OpCodes.Stloc_0)
+			itr = itr.Next;
+		codes.Remove(itr.Next);
+		codes.Remove(itr.Next);
+		itr = itr.Next;
+
+		var generationRulesInstance = AccessTools.Field(typeof(WorldGenerationEngine.GenerationRules), "Instance");
+		var generationSize = AccessTools.Method(typeof(WorldGenerationEngine.GenerationRules), "get_WorldSize");
+		codes.AddBefore(itr, new CodeInstruction(OpCodes.Ldsfld, generationRulesInstance));
+		codes.AddBefore(itr, new CodeInstruction(OpCodes.Callvirt, generationSize));
+		codes.AddBefore(itr, new CodeInstruction(OpCodes.Ldc_I4, 512));
+		codes.AddBefore(itr, new CodeInstruction(OpCodes.Div));
+		codes.AddBefore(itr, new CodeInstruction(OpCodes.Ldsfld, generationRulesInstance));
+		codes.AddBefore(itr, new CodeInstruction(OpCodes.Callvirt, generationSize));
+		codes.AddBefore(itr, new CodeInstruction(OpCodes.Ldc_I4, 512));
+		codes.AddBefore(itr, new CodeInstruction(OpCodes.Div));
+
+		if(isDebug)
+		{
+			var itrBk = itr;
+			while(itr != codes.Last &&
+				!(itr.Previous.Value.opcode == OpCodes.Call &&
+				itr.Previous.Previous.Value.opcode == OpCodes.Call &&
+				itr.Previous.Previous.Previous.Value.opcode == OpCodes.Call &&
+				itr.Previous.Previous.Previous.Previous.Value.opcode == OpCodes.Mul))
+				itr = itr.Next;
+			if(itr == codes.Last)
+				Error("  NO endFor in socket height calc");
+
+			var arrayGetLength = AccessTools.Method(typeof(System.Array), "GetLength");
+
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Ldstr, "[MODS,alf,HPF]Hub height calc "));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Ldloc_1));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Ldc_I4_1));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Callvirt, arrayGetLength));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Ldloc_S, 9));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Mul));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Ldloc_S, 11));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Add));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Ldc_I4_1));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Add));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Box,typeof(Int32)));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Call, concatMethod));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Ldstr, " of "));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Call, concatMethod));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Ldloc_1));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Ldc_I4_0));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Callvirt, arrayGetLength));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Ldloc_1));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Ldc_I4_1));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Callvirt, arrayGetLength));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Mul));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Box,typeof(Int32)));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Call, concatMethod));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Call, basicLogMethod));
+
+			itr = itrBk;
+		}
+
 		Info("Replacing Max bound for each Hub-type");
 		while(itr.Value.labels.Count == 0)
 			itr = itr.Next;
@@ -70,6 +133,7 @@ public class AlphadoJaki_HubGen_TrySmallerWithoutAbort : IHarmony
 			Error("  NO endFor Op");
 		itr = itr.Next; // int 8K.City = 2;
 
+		//Info(itr.Next.Value.ToString());
 		var townNumCfgHook = itr.Next.Value.Clone();// Stloc_S 8K.City
 		for(int i = 0; i < 3; i++)
 		{
@@ -85,9 +149,101 @@ public class AlphadoJaki_HubGen_TrySmallerWithoutAbort : IHarmony
 				Info("  townNumCfg  Size : " + i + ", Rank : " + hubRank);
 				//Info("  Replacing : " + itr.Previous.Value.ToString());
 				//Info("  Comes before : " + itr.Value.ToString());
-				itr.Previous.Value = new CodeInstruction(OpCodes.Ldc_I4_S, HubMaxCount[i][hubRank] as Int32?);
+				itr.Previous.Value = new CodeInstruction(OpCodes.Ldc_I4, HubMaxCount[i][hubRank] as Int32?);
 				itr = itr.Next.Next;
 			}
+		}// int generatedCity = 0;
+
+		if(isDebug)
+		{
+			var itrBk = itr;
+			itr = itr.Next;
+
+			while(itr != codes.Last && itr.Value.labels.Count == 0)
+				itr = itr.Next;
+			if(itr == codes.Last)
+				Error("  NO for : Pack Valid Town IDX List");
+			var packValidTownIdxFor = itr.Value.labels[0];
+			while(itr != codes.Last && !(itr.Value.operand as Label?).Equals(packValidTownIdxFor))
+				itr = itr.Next;
+			if(itr == codes.Last)
+				Error("  NO end for : Pack Valid Town IDX List");
+			itr = itr.Next;
+			// XUtils.Shuffle<Vector2i>(GenerationRules.Instance.Seed, ref list);
+
+			var getTownCandidate = AccessTools.Method(typeof(List<Vector2i>), "get_Count");
+
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Ldstr, "[MODS,alf,HPF]Found "));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Ldloc, 8));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Callvirt, getTownCandidate));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Box,typeof(Int32)));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Call, concatMethod));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Ldstr, " Hubs at valid elevation"));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Call, concatMethod));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Call, basicLogMethod));
+
+			while(itr != codes.Last && itr.Value.labels.Count == 0)
+				itr = itr.Next;
+			if(itr == codes.Last)
+				Error("  NO for : RandomHubSize and TryGen");
+			var randomHubSizeNTryGenFor = itr.Value.labels[0];
+
+			while(itr != codes.Last && itr.Value.opcode != OpCodes.Stloc_S)
+				itr = itr.Next;
+			if(itr == codes.Last)
+				Error("  NO GetX from Valid Town IDX List");
+			itr = itr.Next;
+
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Ldstr, "[MODS,alf,HPF]Trying Hub Gen "));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Ldloc, 15));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Ldc_I4_1));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Add));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Box,typeof(Int32)));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Call, concatMethod));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Ldstr, " of "));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Call, concatMethod));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Ldloc, 8));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Callvirt, getTownCandidate));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Box,typeof(Int32)));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Call, concatMethod));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Call, basicLogMethod));
+
+			while(itr != codes.Last && !(itr.Value.operand as Label?).Equals(randomHubSizeNTryGenFor))
+				itr = itr.Next;
+			if(itr == codes.Last)
+				Error("  NO end for : RandomHubSize and TryGen");
+
+			while(itr != codes.Last && itr.Value.labels.Count == 0)
+				itr = itr.Next;
+			if(itr == codes.Last)
+				Error("  NO for : Highways Generation");
+			//var highwayGenFor = itr.Value.labels[0];
+
+			while(itr != codes.Last && itr.Value.opcode != OpCodes.Stloc_S)
+				itr = itr.Next;
+			if(itr == codes.Last)
+				Error("  NO Run Highway");
+			itr = itr.Next;
+
+			var townBuilder = AccessTools.Field(typeof(WorldGenerationEngine.GenerationManager), "TownBuilders");
+			var getRoadCount = AccessTools.Method(typeof(List<WorldGenerationEngine.SocketTownBuilder>), "get_Count");
+
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Ldstr, "[MODS,alf,HPF]Generating Highway "));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Ldloc, 31));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Ldc_I4_1));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Add));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Box,typeof(Int32)));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Call, concatMethod));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Ldstr, " of "));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Call, concatMethod));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Ldarg_0));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Ldfld, townBuilder));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Callvirt, getRoadCount));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Box,typeof(Int32)));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Call, concatMethod));
+			codes.AddBefore(itr, new CodeInstruction(OpCodes.Call, basicLogMethod));
+
+			itr = itrBk;
 		}
 
 		Info("Reviving dead rural");
@@ -147,18 +303,17 @@ public class AlphadoJaki_HubGen_TrySmallerWithoutAbort : IHarmony
 		Info("  label Integrity fixed");
 
 
-		itr = itr.Next.Next.Next.Next.Next;
+		itr = itr.Next.Next.Next.Next.Next;/*
 		var getTownCandidate = AccessTools.Method(typeof(List<Vector2i>), "get_Count");
-		var concatMethod = AccessTools.Method(AccessTools.TypeByName("System.String"), "Concat", new Type[]{typeof(object), typeof(object)});
-		var basicLogMethod = AccessTools.Method(AccessTools.TypeByName("Log"), "Out", new Type[]{typeof(string)});
 
 		codes.AddBefore(itr, new CodeInstruction(OpCodes.Ldloc, 8));
 		codes.AddBefore(itr, new CodeInstruction(OpCodes.Callvirt, getTownCandidate));
 		codes.AddBefore(itr, new CodeInstruction(OpCodes.Box,typeof(Int32)));
 		codes.AddBefore(itr, new CodeInstruction(OpCodes.Ldstr, " of v2i found"));
 		codes.AddBefore(itr, new CodeInstruction(OpCodes.Call, concatMethod));
-		codes.AddBefore(itr, new CodeInstruction(OpCodes.Call, basicLogMethod));
+		codes.AddBefore(itr, new CodeInstruction(OpCodes.Call, basicLogMethod));*/
 
+		Info("label detection for later use");
 		while(
 		// !(itr.Value.opcode == OpCodes.Ldloc_S &&
 		// (itr.Value.operand as uint?).Equals(24) &&
@@ -189,6 +344,28 @@ public class AlphadoJaki_HubGen_TrySmallerWithoutAbort : IHarmony
 			Info("  NO DoTownGen section FOUND");
 		var skipTownGenLabel = (itr.Value.operand as Label?).Value;
 
+		Info("Replacing Hard-Max town count 32 to size/512 : 2 of 2");
+		for(int i = 0; i < 2; i++)
+		{
+			while(itr.Value.opcode != OpCodes.Stloc_S && itr.Value.opcode != OpCodes.Bge && itr != codes.Last)
+				itr = itr.Next;
+			for(int j = 0; j < 2; j++)
+			{
+				Info(itr.Value.ToString());
+				while(itr.Next.Value.opcode != OpCodes.Ldsfld && itr != codes.Last)
+					itr = itr.Next;
+				while(itr.Next.Value.opcode != OpCodes.Div && itr != codes.Last)
+					codes.Remove(itr.Next);
+				if(itr == codes.Last)
+					Error("  NO 8 found");
+				codes.Remove(itr.Next);
+				itr = itr.Next;
+				codes.AddBefore(itr, new CodeInstruction(OpCodes.Ldc_I4, 512));
+				Info(itr.Value.ToString());
+			}
+		}
+
+		Info("Skiping until reaching end of town gen try");
 		while(!itr.Value.labels.Contains(skipTownGenLabel) &&
 		itr != codes.Last)
 			itr = itr.Next;
@@ -259,16 +436,16 @@ public class AlphadoJaki_HubGen_TrySmallerWithoutAbort : IHarmony
 	public static void Info(string message)
 	{
 		if(isDebug)
-			Log.Out(message);
+			Log.Out("[MODS,alf,HPF]" + message);
 	}
 	public static void Error(string message)
 	{
 		if(isDebug)
-			Log.Error(message);
+			Log.Error("[MODS,alf,HPF]" + message);
 	}
 	public static void Warning(string message)
 	{
 		if(isDebug)
-			Log.Warning(message);
+			Log.Warning("[MODS,alf,HPF]" + message);
 	}
 }
